@@ -100,7 +100,7 @@ class Benchmark:
             model = torchvision.models.mnasnet0_5()
             inputs = (torch.randn((batch_size, 3, 224, 224)),)
         elif model_name == "mobilenet":
-            model = torchvision.models.mobilenet_v2()
+            model = torchvision.models.mobilenet_v2(width_mult=0.25)
             inputs = (torch.randn((batch_size, 3, 224, 224)),)
         elif model_name == "raft":
             model = torchvision.models.optical_flow.raft_small()
@@ -121,10 +121,40 @@ class Benchmark:
             bert_base = torchtext.models.ROBERTA_BASE_ENCODER
             model = bert_base.get_model()
             transform = bert_base.transform()
-            input_batch = ["Hello world"] * batch_size
+            input_batch = ["x" * 512] * batch_size
             inputs = (
                 torchtext.functional.to_tensor(transform(input_batch), padding_value=1),
             )
+        elif model_name == "gpt2":
+            from transformers import GPT2Tokenizer, GPT2Model
+            class GPT2Wrapper(torch.nn.Module):
+                def __init__(self):
+                    super(GPT2Wrapper, self).__init__()
+                    self.model = GPT2Model.from_pretrained('gpt2')
+
+                def forward(self, x):
+                    return self.model(x).last_hidden_state
+            tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+            text = "Replace me by any text you'd like."
+            tokens = tokenizer.tokenize(text)
+            indexed_tokens = tokenizer.convert_tokens_to_ids(tokens)
+            inputs = torch.tensor([indexed_tokens])
+            model = GPT2Wrapper()
+        elif model_name == "megatron":
+            from transformers import BertTokenizer, MegatronBertModel
+            class MegatronWrapper(torch.nn.Module):
+                def __init__(self):
+                    super(MegatronWrapper, self).__init__()
+                    self.model = MegatronBertModel.from_pretrained("nvidia/megatron-bert-cased-345m")
+
+                def forward(self, x):
+                    return self.model(x).last_hidden_state
+            tokenizer = BertTokenizer.from_pretrained("nvidia/megatron-bert-cased-345m")
+            text = "Replace me by any text you'd like."
+            tokens = tokenizer.tokenize(text)
+            indexed_tokens = tokenizer.convert_tokens_to_ids(tokens)
+            inputs = torch.tensor([indexed_tokens])
+            model = MegatronWrapper()
         elif model_name == "squeezenet":
             model = torchvision.models.squeezenet1_0()
             inputs = (torch.randn((batch_size, 3, 224, 224)),)
@@ -158,7 +188,7 @@ class Benchmark:
             model = torchvision.models.vgg19()
             inputs = (torch.randn((batch_size, 3, 224, 224)),)
         elif model_name == "vit":
-            model = torchvision.models.vit_b_16()
+            model = torchvision.models.vit_h_14()
             inputs = (torch.randn((batch_size, 3, 224, 224)),)
         elif model_name == "xlmr":
             xlmr_base = torchtext.models.XLMR_BASE_ENCODER
@@ -457,7 +487,7 @@ if __name__ == "__main__":
                     profile_iters = 300
                     device = "cuda"
 
-                try:
+                if True: # try:
                     graph, pt_node_order = b.load_model(
                         model,
                         mode,
@@ -468,7 +498,7 @@ if __name__ == "__main__":
                         profile_iters=profile_iters,
                         render_model=args.render_models,
                     )
-                except Exception as e:
+                else: # except Exception as e:
                     print(f"  FAILED TO LOAD {model}, SKIPPING TO NEXT MODEL: {e}")
                     result["load_model.error"] = str(e).replace("\n", " ")
                     continue

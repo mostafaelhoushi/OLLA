@@ -1109,10 +1109,12 @@ class Graph:
 
     def is_valid(self, verbose=False):
         try:
+            print("calling self.check_consistency")
             valid = self.check_consistency(verbose)
         except Exception:
             return False
 
+        print("calling self.has_loops")
         valid &= not self.has_loops(verbose)
         return valid
 
